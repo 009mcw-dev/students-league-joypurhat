@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>প্রোফাইল পিকচার মেকার | Students League Panchbibi</title>
+<style>
+:root{--green:#08733d;--red:#e31b23;--gold:#f7c843}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans Bengali",sans-serif;background:#f4f6f4;color:#18221c}
+header{background:linear-gradient(120deg,#064e32,#08733d);color:#fff;text-align:center;padding:24px 16px}
+header h1{font-size:clamp(22px,5vw,34px);margin:0 0 8px}header p{margin:0;opacity:.9}
+main{max-width:950px;margin:22px auto;padding:0 14px 32px;display:grid;grid-template-columns: minmax(0,1fr) minmax(0,1fr);gap:22px}
+.panel{background:white;border-radius:18px;padding:20px;box-shadow:0 8px 28px #152a1b12}
+h2{font-size:19px;margin:0 0 14px}
+.upload{display:block;border:2px dashed #9db8a6;border-radius:14px;padding:18px;text-align:center;background:#f8fbf8;cursor:pointer}
+.upload input{display:block;width:100%;margin-top:12px}
+.controls{margin-top:18px;display:grid;gap:14px}
+label{font-size:14px;font-weight:650;display:flex;justify-content:space-between;gap:10px}
+input[type=range]{width:100%;accent-color:var(--green)}
+button{border:0;border-radius:12px;padding:13px 16px;font:inherit;font-weight:750;cursor:pointer}
+.primary{background:var(--green);color:white}.secondary{background:#e9f1eb;color:#164d2f}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preview-wrap{width:min(100%,440px);margin:auto;aspect-ratio:1;background:#e6ebe7;border-radius:14px;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.hint{font-size:13px;line-height:1.6;color:#59665d;margin:12px 0 0}
+.status{font-size:14px;color:#9b2020;margin-top:10px;min-height:20px}
+footer{text-align:center;color:#66736a;font-size:12px;padding:0 12px 22px}
+@media(max-width:720px){main{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>প্রোফাইল পিকচার মেকার</h1>
+  <p>আপনার ছবি আপলোড করুন, ফ্রেমসহ প্রোফাইল ছবি তৈরি করে ডাউনলোড করুন</p>
+</header>
+<main>
+  <section class="panel">
+    <h2>১. আপনার ছবি বেছে নিন</h2>
+    <label class="upload">
+      <strong>📷 গ্যালারি থেকে ছবি আপলোড করুন</strong>
+      <span class="hint">JPG, PNG বা WebP · ছবি আপনার ডিভাইসেই প্রসেস হবে</span>
+      <input id="photoInput" type="file" accept="image/*">
+    </label>
+    <div class="controls">
+      <div>
+        <label for="zoom">ছবির জুম <span id="zoomValue">100%</span></label>
+        <input id="zoom" type="range" min="100" max="220" value="100">
+      </div>
+      <div>
+        <label for="horizontal">ডানে-বামে সরান <span id="xValue">0</span></label>
+        <input id="horizontal" type="range" min="-100" max="100" value="0">
+      </div>
+      <div>
+        <label for="vertical">উপরে-নিচে সরান <span id="yValue">0</span></label>
+        <input id="vertical" type="range" min="-100" max="100" value="0">
+      </div>
+      <button class="secondary" id="reset" type="button">ছবির অবস্থান রিসেট</button>
+    </div>
+    <p class="hint">টিপস: মুখ ঠিকমতো ফ্রেমে না বসলে জুম ও সরানোর স্লাইডার ব্যবহার করুন।</p>
+    <div id="status" class="status" role="status"></div>
+  </section>
+  <section class="panel">
+    <h2>২. প্রিভিউ ও ডাউনলোড</h2>
+    <div class="preview-wrap"><canvas id="canvas" width="1254" height="1254" aria-label="প্রোফাইল ছবির প্রিভিউ"></canvas></div>
+    <div class="actions">
+      <button class="primary" id="download" type="button" disabled>PNG ডাউনলোড</button>
+      <button class="secondary" id="share" type="button" disabled>শেয়ার</button>
+    </div>
+    <p class="hint">ডাউনলোড করা PNG ছবিটি Facebook, WhatsApp বা অন্য প্রোফাইলে ব্যবহার করতে পারবেন।</p>
+  </section>
+</main>
+<footer>এই টুলে ছবি কোনো সার্ভারে আপলোড হয় না—সব কাজ আপনার ব্রাউজারেই হয়।</footer>
+<script>
+const SIZE=1254;
+const input=document.getElementById('photoInput');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+const frame=new Image();
+let userPhoto=null, frameReady=false;
+const zoom=document.getElementById('zoom'), horizontal=document.getElementById('horizontal'), vertical=document.getElementById('vertical');
+const download=document.getElementById('download'), share=document.getElementById('share'), status=document.getElementById('status');
+frame.onload=()=>{frameReady=true;draw();};
+frame.onerror=()=>{status.textContent='ফ্রেম ফাইলটি লোড হয়নি। index.html-এর পাশে profile_frame_transparent.png ফাইলটি রাখুন।';};
+frame.src='profile_frame_transparent.png';
+
+function draw(){
+  ctx.clearRect(0,0,SIZE,SIZE);
+  // A neutral background is used only in the preview; exported PNG remains transparent outside the frame.
+  if(userPhoto){
+    const scale=Math.max(SIZE/userPhoto.width,SIZE/userPhoto.height)*(Number(zoom.value)/100);
+    const w=userPhoto.width*scale, h=userPhoto.height*scale;
+    const dx=(SIZE-w)/2 + Number(horizontal.value)*SIZE/500;
+    const dy=(SIZE-h)/2 + Number(vertical.value)*SIZE/500;
+    ctx.save();
+    ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,565,0,Math.PI*2);ctx.clip();
+    ctx.drawImage(userPhoto,dx,dy,w,h);
+    ctx.restore();
+  } else {
+    ctx.fillStyle='#e6ebe7';ctx.fillRect(0,0,SIZE,SIZE);
+    ctx.fillStyle='#52645a';ctx.textAlign='center';ctx.font='bold 38px sans-serif';
+    ctx.fillText('আপনার ছবি আপলোড করুন',SIZE/2,SIZE/2);
+  }
+  if(frameReady)ctx.drawImage(frame,0,0,SIZE,SIZE);
+  document.getElementById('zoomValue').textContent=zoom.value+'%';
+  document.getElementById('xValue').textContent=horizontal.value;
+  document.getElementById('yValue').textContent=vertical.value;
+}
+input.addEventListener('change',()=>{
+  const file=input.files&&input.files[0]; if(!file)return;
+  if(!file.type.startsWith('image/')){status.textContent='অনুগ্রহ করে একটি ছবি ফাইল বেছে নিন।';return;}
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{userPhoto=img;URL.revokeObjectURL(url);status.textContent='ছবি প্রস্তুত! প্রিভিউ দেখে ডাউনলোড করুন।';download.disabled=false;share.disabled=false;draw();};
+  img.onerror=()=>{URL.revokeObjectURL(url);status.textContent='ছবিটি খোলা যায়নি। অন্য ছবি চেষ্টা করুন।';};
+  img.src=url;
+});
+[zoom,horizontal,vertical].forEach(el=>el.addEventListener('input',draw));
+document.getElementById('reset').addEventListener('click',()=>{zoom.value=100;horizontal.value=0;vertical.value=0;draw();});
+function exportBlob(){return new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}
+download.addEventListener('click',async()=>{
+  if(!userPhoto)return;
+  const blob=await exportBlob();if(!blob){status.textContent='ছবি তৈরি করা যায়নি। আবার চেষ্টা করুন।';return;}
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='students-league-panchbibi-profile.png';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+});
+share.addEventListener('click',async()=>{
+  if(!userPhoto)return;
+  const blob=await exportBlob();if(!blob)return;
+  const file=new File([blob],'profile-picture.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'আমার প্রোফাইল ছবি'});}catch(e){}
+  }else{status.textContent='এই ব্রাউজারে সরাসরি শেয়ার সমর্থিত নয়। PNG ডাউনলোড করে শেয়ার করুন।';}
+});
+draw();
+</script>
+</body>
+</html>
